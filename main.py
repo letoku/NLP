@@ -1,9 +1,10 @@
-import names_dataset
+from names_dataset_builder import NamesDatasetBuilder
+from torch.utils.data import DataLoader
 
 
 def __main__():
     names = open('names.txt', 'r').read().splitlines()
-    builder = names_dataset.NamesDatasetBuilder(names, block_size=2)
+    builder = NamesDatasetBuilder(names, block_size=3)
     builder.build()
 
 
