@@ -79,9 +79,9 @@ class StateDependentModule(Module):
         hidden_layer_counter = 0
         for i, layer in enumerate(self.layers):
             if issubclass(layer.__class__, StateDependentLayer):
-                h_t = hidden_states[:, hidden_layer_counter]
-                x, hidden_states[:, hidden_layer_counter] = layer(x, h_t)
-                hidden_states[:, hidden_layer_counter] = self.layers[i + 1](hidden_states[:, hidden_layer_counter])  # Here we assume that next is nonlinear layer.
+                h_t = hidden_states[:, :, hidden_layer_counter]
+                x, hidden_states[:, :, hidden_layer_counter] = layer(x, h_t)
+                hidden_states[:, :, hidden_layer_counter] = self.layers[i + 1](hidden_states[:, :, hidden_layer_counter])  # Here we assume that next is nonlinear layer.
                 hidden_layer_counter += 1
             else:
                 x = layer(x)

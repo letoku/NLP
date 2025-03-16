@@ -69,17 +69,17 @@ class RecurrentLayer(StateDependentLayer):
         self.hidden_state_features = hidden_state_features
         self.out_features = out_features
         self.w_in = torch.empty(in_features, out_features)
-        self.w_hidden = torch.empty(hidden_state_features, out_features)
+        self.w_hidden = torch.empty(hidden_state_features, hidden_state_features)
         self.b: Optional[torch.Tensor] = None
         self.bias = bias
         self.g = g
         self._init_parameters()
 
-    def __call__(self, x: torch.Tensor, hidden: torch.Tensor) -> torch.Tensor:
+    def __call__(self, x: torch.Tensor, hidden: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         out = torch.matmul(x, self.w_in) + torch.matmul(hidden, self.w_hidden)
         if self.b is not None:
             out += self.b
-        return out
+        return out, out
 
     def parameters(self) -> list[torch.Tensor]:
         if self.b is not None:
