@@ -33,4 +33,4 @@ class NamesDataset(Dataset):
             itos = json.load(f)
             self.itos = self._convert_keys_to_int(itos)
         with open(os.path.join(self.root, "stoi.json"), "r") as f:
-            stoi = json.load(f)
+            self.stoi = json.load(f)
