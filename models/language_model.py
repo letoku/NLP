@@ -1,7 +1,7 @@
 import torch
-from .module import Module
+from .module import ForwardModule
 
-class LanguageModel(Module):
+class LanguageModel(ForwardModule):
     def __init__(self, specs: list[tuple[str, dict]], block_size: int, itos: dict[int, str], g: torch.Generator=None):
         super().__init__(specs, g)
         self.itos = itos
