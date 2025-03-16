@@ -15,9 +15,9 @@ class Module:
         self.layers = []
         self.g = g
         for spec in specs:
-            type, kwargs = spec
-            assert type in ALLOWED_LAYERS
-            added_layer = ALLOWED_LAYERS[type]
+            layer_type, kwargs = spec
+            assert layer_type in ALLOWED_LAYERS
+            added_layer = ALLOWED_LAYERS[layer_type]
             self.layers.append(added_layer(**kwargs))
 
         self.parameters = []
