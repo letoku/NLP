@@ -76,6 +76,8 @@ class RNNNamesDataset(NamesDataset):
         self.X = []
         self.y = []
         self.error_weights = []
+        self.tokens_in_set = 0
+
         for i in range(len(self.data)):
             input_seq = [0]
             output_seq = []
@@ -93,8 +95,12 @@ class RNNNamesDataset(NamesDataset):
             self.X.append(input_seq)
             self.y.append(output_seq)
             self.error_weights.append(error_weights)
-            self.size += len(self.data[i])
+            self.tokens_in_set += len(self.data[i])
 
         self.X = torch.tensor(self.X)
         self.y = torch.tensor(self.y)
         self.error_weights = torch.tensor(self.error_weights)
+        self.size = len(self.X)
+
+    def number_of_tokens_in_set(self) -> int:
+        return self.tokens_in_set
