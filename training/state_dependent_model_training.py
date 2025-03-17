@@ -25,11 +25,10 @@ def custom_update_step(model, losses, history_losses, tokens_n, lr):
     running_train_loss = 0.0
     for param in model.parameters:
         param.grad = None
+
     for loss in losses:
-        for i in range(len(loss)):
-            if not is_zero(loss[i].item()):
-                (loss[i] / tokens_n).backward(retain_graph=True)
-                running_train_loss += loss[i].item() / tokens_n
+        (loss.sum() / tokens_n).backward(retain_graph=True)
+        running_train_loss += loss.sum().item() / tokens_n
 
     for param in model.parameters:
         param.data -= param.grad * lr

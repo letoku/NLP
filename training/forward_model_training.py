@@ -29,7 +29,24 @@ def plot_losses(training_stats):
     plt.show()
 
 
-def train_loop(model: ForwardModule, train_loader: DataLoader, train_losses: list[float], lr=1e-3) -> None:
+def optim_update_step(optimizer, loss):
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+
+def custom_update_step(model, loss, lr):
+    for param in model.parameters:
+        param.grad = None
+
+    loss.backward()
+
+    for param in model.parameters:
+        param.data -= param.grad * lr
+
+
+def train_loop(model: ForwardModule, train_loader: DataLoader, train_losses: list[float], lr=1e-3,
+               optimizer=None) -> None:
     model.set_train_mode()
     running_train_loss = 0.0
 
@@ -37,12 +54,10 @@ def train_loop(model: ForwardModule, train_loader: DataLoader, train_losses: lis
         preds = model(x)
         loss = F.cross_entropy(preds, y)
 
-        for param in model.parameters:
-            param.grad = None
-        loss.backward()
-
-        for param in model.parameters:
-            param.data -= param.grad * lr
+        if optimizer is None:
+            custom_update_step(model, loss, lr)
+        else:
+            optim_update_step(optimizer, loss)
 
         running_train_loss += loss.item()
 
@@ -69,7 +84,8 @@ def print_stats(epoch: int, num_epochs: int, train_losses: list[float], val_loss
     )
 
 
-def train_model(model: ForwardModule, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int) -> dict:
+def train_model(model: ForwardModule, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int,
+                optimizer=None) -> dict:
     """
     Returns:
         A dictionary containing training statistics:
@@ -88,7 +104,10 @@ def train_model(model: ForwardModule, train_loader: DataLoader, val_loader: Data
         else:
             lr = 1e-3
 
-        train_loop(model, train_loader, train_losses, lr)
+        if optimizer is not None:
+            train_loop(model, train_loader, train_losses, optimizer=optimizer)
+        else:
+            train_loop(model, train_loader, train_losses, lr=lr)
         val_loop(model, val_loader, val_losses)
         print_stats(epoch, num_epochs, train_losses, val_losses)
 
