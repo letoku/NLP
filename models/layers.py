@@ -18,6 +18,13 @@ class Layer(ABC):
     def parameters(self) -> List[torch.Tensor]:
         pass
 
+    def n_parameters(self) -> int:
+        params = self.parameters()
+        n_params = 0
+        for param in params:
+            n_params += param.numel()
+        return n_params
+
     @abstractmethod
     def __call__(self, *args) -> Tuple[Any, ...]:
         pass
@@ -67,10 +74,10 @@ class Linear(ForwardLayer):
         return out
 
     def parameters(self) -> List[torch.Tensor]:
+        params = [self.w]
         if self.b is not None:
-            return [self.w, self.b]
-        else:
-            return [self.w]
+            params += [self.b]
+        return params
 
     def _init_parameters(self) -> None:
         _init_weights(self.w, self.in_features, self.g)
@@ -85,6 +92,7 @@ class RecurrentLayer(StateDependentLayer):
     }
 
     def __init__(self, in_features: int, hidden_state_features: int, out_features: int,
+                 different_weights_for_hidden_output: bool = False,
                  non_linearity_type: str = "ReLU",
                  g: torch.Generator=None,
                  bias: bool=True):
@@ -94,26 +102,53 @@ class RecurrentLayer(StateDependentLayer):
         self.w_in = torch.empty(in_features, out_features)
         self.w_hidden = torch.empty(hidden_state_features, hidden_state_features)
         self.b: Optional[torch.Tensor] = None
+
+        self.w_in_for_hidden_pass: Optional[torch.Tensor] = None
+        self.w_hidden_for_hidden_pass: Optional[torch.Tensor] = None
+        self.b_for_hidden_pass: Optional[torch.Tensor] = None
+
         self.bias = bias
+        self.different_weights_for_hidden_output = different_weights_for_hidden_output
         self.g = g
         self._init_parameters()
         self._set_non_linearity(non_linearity_type)
+
 
     def __call__(self, x: torch.Tensor, hidden: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         out = torch.matmul(x, self.w_in) + torch.matmul(hidden, self.w_hidden)
         if self.b is not None:
             out += self.b
-        return out, self.non_linearity(out)
+
+        if self.different_weights_for_hidden_output:
+            hidden = torch.matmul(x, self.w_in_for_hidden_pass) + torch.matmul(hidden, self.w_hidden_for_hidden_pass)
+            if self.b_for_hidden_pass is not None:
+                hidden = self.non_linearity(hidden)
+        else:
+            hidden = self.non_linearity(out)
+
+        return out, hidden
 
     def parameters(self) -> List[torch.Tensor]:
+        params = [self.w_in, self.w_hidden]
         if self.b is not None:
-            return [self.w_in, self.w_hidden, self.b]
-        else:
-            return [self.w_in, self.w_hidden]
+            params += [self.b]
+        if self.different_weights_for_hidden_output:
+            params += [self.w_hidden_for_hidden_pass, self.w_in_for_hidden_pass, self.b_for_hidden_pass]
+
+        return params
 
     def _init_parameters(self) -> None:
         _init_weights(self.w_in, self.in_features, self.g)
         _init_weights(self.w_hidden, self.hidden_state_features, self.g)  # TODO: Experiment with this later on.
+        if self.different_weights_for_hidden_output:
+            self.w_in_for_hidden_pass = torch.empty(self.in_features, self.out_features)
+            self.w_hidden_for_hidden_pass = torch.empty(self.hidden_state_features, self.hidden_state_features)
+
+            _init_weights(self.w_hidden_for_hidden_pass, self.hidden_state_features, self.g)
+            _init_weights(self.w_in_for_hidden_pass, self.in_features, self.g)
+            if self.bias:
+                self.b_for_hidden_pass = torch.zeros(self.hidden_state_features)
+
         if self.bias:
             self.b = torch.zeros(self.out_features)
 

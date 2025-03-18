@@ -39,6 +39,12 @@ class Module(ABC):
     def predict_proba(self, *args) -> Tuple[Any, ...]:
         pass
 
+    def n_parameters(self) -> int:
+        n_params = 0
+        for layer in self.layers:
+            n_params += layer.n_parameters()
+        return n_params
+
     def _scale_layer(self, layer_index: int, scaling_factor: float):
         for param in self.layers[layer_index].parameters():
             param *= scaling_factor

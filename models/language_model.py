@@ -1,15 +1,22 @@
 from typing import List, Tuple, Dict
 import torch
+from abc import ABC, abstractmethod
+
 from .module import ForwardModule, StateDependentModule
 
+class LanguageModel(ABC):
+    @abstractmethod
+    def sample(self) -> str:
+        pass
 
-class LanguageModel(ForwardModule):
+
+class ContextWindowLanguageModel(ForwardModule, LanguageModel):
     def __init__(self, specs: List[Tuple[str, Dict]], block_size: int, itos: Dict[int, str], g: torch.Generator=None):
         super().__init__(specs, g)
         self.itos = itos
         self.block_size = block_size
 
-    def sample(self):
+    def sample(self) -> str:
         self.set_eval_mode()
         context = torch.tensor([0] * self.block_size)
         outputs = []
@@ -25,12 +32,12 @@ class LanguageModel(ForwardModule):
         return ''.join(self.itos[o] for o in outputs)
 
 
-class StateDependentLanguageModel(StateDependentModule):
+class StateDependentLanguageModel(StateDependentModule, LanguageModel):
     def __init__(self, specs: List[Tuple[str, Dict]], hidden_units: int, itos: Dict[int, str], g: torch.Generator=None):
         super().__init__(specs, hidden_units, g)
         self.itos = itos
 
-    def sample(self):
+    def sample(self) -> str:
         self.set_eval_mode()
         context = torch.tensor([0])
         outputs = []
