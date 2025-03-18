@@ -1,7 +1,10 @@
+from typing import List, Dict
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from models import StateDependentModule
+
+from .utils import print_stats
 
 
 def optim_update_step(optimizer, losses, tokens_n):
@@ -19,11 +22,12 @@ def custom_update_step(model, losses, tokens_n, lr):
         (loss.sum() / tokens_n).backward(retain_graph=True)
 
     for param in model.parameters:
-        param.data -= param.grad * lr
+        if param.grad is not None:
+            param.data -= param.grad * lr
 
 
-def train_loop(model: StateDependentModule, train_loader: DataLoader, train_losses: list[float], lr=1e-3, optimizer=None) -> None:
-    hidden_units, number_of_hidden_layers = model.hidden_states_dimensions()
+def train_loop(model: StateDependentModule, train_loader: DataLoader, train_losses: List[float], lr=1e-3, optimizer=None) -> None:
+    hidden_units, number_of_hidden_layers = model.get_hidden_states_dims()
     model.set_train_mode()
 
     running_train_loss = 0.0
@@ -46,9 +50,9 @@ def train_loop(model: StateDependentModule, train_loader: DataLoader, train_loss
     train_losses.append(running_train_loss / all_tokens)
 
 
-def val_loop(model: StateDependentModule, val_loader: DataLoader, val_losses: list[float]) -> None:
+def val_loop(model: StateDependentModule, val_loader: DataLoader, val_losses: List[float]) -> None:
     running_val_loss = 0.0
-    hidden_units, number_of_hidden_layers = model.hidden_states_dimensions()
+    hidden_units, number_of_hidden_layers = model.get_hidden_states_dims()
     model.set_eval_mode()
     all_tokens = 0
     for x_seq, y_seq, w_seq in val_loader:
@@ -63,18 +67,10 @@ def val_loop(model: StateDependentModule, val_loader: DataLoader, val_losses: li
     val_losses.append(running_val_loss / all_tokens)
 
 
-def print_stats(epoch: int, num_epochs: int, train_losses: list[float], val_losses: list[float]) -> None:
-    print(
-        f"Epoch [{epoch + 1}/{num_epochs}], "
-        f"Train Loss: {train_losses[-1]:.4f}, "
-        f"Val Loss: {val_losses[-1]:.4f}"
-    )
-
-
 def train_model(model: StateDependentModule,
-                train_loader: DataLoader, train_tokens_n: int,
-                val_loader: DataLoader, val_tokens_n: int,
-                num_epochs: int, optimizer=None) -> dict:
+                train_loader: DataLoader,
+                val_loader: DataLoader,
+                num_epochs: int, optimizer=None, lr=1e-3) -> Dict[str, List[float]]:
     """
     Returns:
         A dictionary containing training statistics:
@@ -84,7 +80,6 @@ def train_model(model: StateDependentModule,
     val_losses = []
 
     for epoch in range(num_epochs):
-        lr = 0.5
         if optimizer is not None:
             train_loop(model, train_loader, train_losses, optimizer=optimizer)
         else:

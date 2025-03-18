@@ -1,32 +1,8 @@
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from models import ForwardModule, StateDependentModule, LanguageModel
-import matplotlib.pyplot as plt
+from models import ForwardModule
 
-
-def plot_losses(training_stats):
-    """
-    Plots the training and validation losses over epochs.
-
-    Args:
-        training_stats: Dictionary returned by the train_model function containing 'train_loss' and 'val_loss'.
-    """
-    epochs = range(1, len(training_stats['train_loss']) + 1)
-
-    # Plot training and validation loss
-    plt.figure(figsize=(10, 6))
-    plt.plot(epochs, training_stats['train_loss'], label='Training Loss', color='blue', linestyle='-', marker='o')
-    plt.plot(epochs, training_stats['val_loss'], label='Validation Loss', color='red', linestyle='--', marker='x')
-
-    # Labels and title
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title('Training and Validation Loss over Epochs')
-    plt.legend()
-    plt.grid(True)
-
-    # Show the plot
-    plt.show()
+from .utils import print_stats
 
 
 def optim_update_step(optimizer, loss):
@@ -75,13 +51,6 @@ def val_loop(model: ForwardModule, val_loader: DataLoader, val_losses: list[floa
 
     val_losses.append(running_val_loss / len(val_loader))
 
-
-def print_stats(epoch: int, num_epochs: int, train_losses: list[float], val_losses: list[float]) -> None:
-    print(
-        f"Epoch [{epoch + 1}/{num_epochs}], "
-        f"Train Loss: {train_losses[-1]:.4f}, "
-        f"Val Loss: {val_losses[-1]:.4f}"
-    )
 
 
 def train_model(model: ForwardModule, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int,

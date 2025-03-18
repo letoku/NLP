@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, List, Any
 
 import numpy as np
 import torch
@@ -15,7 +15,7 @@ def _init_weights(w: torch.Tensor, in_features: int, g: torch.Generator=None) ->
 
 class Layer(ABC):
     @abstractmethod
-    def parameters(self) -> list[torch.Tensor]:
+    def parameters(self) -> List[torch.Tensor]:
         pass
 
     @abstractmethod
@@ -34,6 +34,22 @@ class StateDependentLayer(Layer, ABC):
         pass
 
 
+class ReLU(ForwardLayer):
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.relu(x)
+
+    def parameters(self) -> List[torch.Tensor]:
+        return []
+
+
+class Tanh(ForwardLayer):
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.tanh(x)
+
+    def parameters(self) -> List[torch.Tensor]:
+        return []
+
+
 class Linear(ForwardLayer):
     def __init__(self, in_features: int, out_features: int, g: torch.Generator=None, bias: bool=True):
         self.in_features = in_features
@@ -50,7 +66,7 @@ class Linear(ForwardLayer):
             out += self.b
         return out
 
-    def parameters(self) -> list[torch.Tensor]:
+    def parameters(self) -> List[torch.Tensor]:
         if self.b is not None:
             return [self.w, self.b]
         else:
@@ -63,7 +79,14 @@ class Linear(ForwardLayer):
 
 
 class RecurrentLayer(StateDependentLayer):
-    def __init__(self, in_features: int, hidden_state_features: int, out_features: int, g: torch.Generator=None,
+    ALLOWED_NON_LINEARITIES = {
+        "ReLU": ReLU,
+        "Tanh": Tanh,
+    }
+
+    def __init__(self, in_features: int, hidden_state_features: int, out_features: int,
+                 non_linearity_type: str = "ReLU",
+                 g: torch.Generator=None,
                  bias: bool=True):
         self.in_features = in_features
         self.hidden_state_features = hidden_state_features
@@ -74,14 +97,15 @@ class RecurrentLayer(StateDependentLayer):
         self.bias = bias
         self.g = g
         self._init_parameters()
+        self._set_non_linearity(non_linearity_type)
 
-    def __call__(self, x: torch.Tensor, hidden: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+    def __call__(self, x: torch.Tensor, hidden: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         out = torch.matmul(x, self.w_in) + torch.matmul(hidden, self.w_hidden)
         if self.b is not None:
             out += self.b
-        return out, out
+        return out, self.non_linearity(out)
 
-    def parameters(self) -> list[torch.Tensor]:
+    def parameters(self) -> List[torch.Tensor]:
         if self.b is not None:
             return [self.w_in, self.w_hidden, self.b]
         else:
@@ -93,21 +117,12 @@ class RecurrentLayer(StateDependentLayer):
         if self.bias:
             self.b = torch.zeros(self.out_features)
 
+    def _set_non_linearity(self, non_linearity_type: str):
+        if non_linearity_type not in RecurrentLayer.ALLOWED_NON_LINEARITIES:
+            raise KeyError(
+                f"Nonlinearity type '{non_linearity_type}' is not in ALLOWED_NON_LINEARITIES. Available nonlinearities: {list(RecurrentLayer.ALLOWED_NON_LINEARITIES.keys())}")
 
-class ReLU(ForwardLayer):
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.relu(x)
-
-    def parameters(self) -> list[torch.Tensor]:
-        return []
-
-
-class Tanh(ForwardLayer):
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.tanh(x)
-
-    def parameters(self) -> list[torch.Tensor]:
-        return []
+        self.non_linearity = RecurrentLayer.ALLOWED_NON_LINEARITIES[non_linearity_type]()
 
 
 class Embedding(ForwardLayer):
@@ -119,5 +134,5 @@ class Embedding(ForwardLayer):
         emb = self.embedding_matrix[x]
         return emb.view(x.shape[0], -1)
 
-    def parameters(self) -> list[torch.Tensor]:
+    def parameters(self) -> List[torch.Tensor]:
         return [self.embedding_matrix]

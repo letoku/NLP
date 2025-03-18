@@ -1,9 +1,10 @@
+from typing import List, Tuple, Dict
 import torch
 from .module import ForwardModule, StateDependentModule
 
 
 class LanguageModel(ForwardModule):
-    def __init__(self, specs: list[tuple[str, dict]], block_size: int, itos: dict[int, str], g: torch.Generator=None):
+    def __init__(self, specs: List[Tuple[str, Dict]], block_size: int, itos: Dict[int, str], g: torch.Generator=None):
         super().__init__(specs, g)
         self.itos = itos
         self.block_size = block_size
@@ -25,7 +26,7 @@ class LanguageModel(ForwardModule):
 
 
 class StateDependentLanguageModel(StateDependentModule):
-    def __init__(self, specs: list[tuple[str, dict]], hidden_units: int, itos: dict[int, str], g: torch.Generator=None):
+    def __init__(self, specs: List[Tuple[str, Dict]], hidden_units: int, itos: Dict[int, str], g: torch.Generator=None):
         super().__init__(specs, hidden_units, g)
         self.itos = itos
 
@@ -33,7 +34,7 @@ class StateDependentLanguageModel(StateDependentModule):
         self.set_eval_mode()
         context = torch.tensor([0])
         outputs = []
-        hidden_units, number_of_hidden_layers = self.hidden_states_dimensions()
+        hidden_units, number_of_hidden_layers = self.get_hidden_states_dims()
         hidden_states = torch.zeros(1, hidden_units, number_of_hidden_layers)
         while True:
             probs, hidden_states = self.predict_proba(torch.unsqueeze(context, dim=0), hidden_states)
