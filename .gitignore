@@ -1,4 +1,7 @@
 .ipynb_checkpoints
 .idea
 data
-sandbox.ipynb
+raw_data/*
+notebooks/*
+artifacts/*
+
