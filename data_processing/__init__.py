@@ -1,1 +1,1 @@
-from .datasets import NamesDataset, ContextWindowNamesDataset, RNNNamesDataset
+from .datasets import TextDataset, ContextWindowTextDataset, RNNTextDataset

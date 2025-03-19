@@ -6,9 +6,9 @@ from torch.utils.data import Dataset
 from abc import ABC, abstractmethod
 
 
-class NamesDataset(Dataset, ABC):
+class TextDataset(Dataset, ABC):
     def __init__(self, root, split="train", transform=None):
-        assert split in ["train", "val", "test"]
+        assert split in ["train", "val", "test"], "Split should be one of 'train', 'val', or 'test'"
         self.root = root
         self.data_path = os.path.join(root, split)
         self.transform = transform
@@ -41,7 +41,7 @@ class NamesDataset(Dataset, ABC):
         pass
 
 
-class ContextWindowNamesDataset(NamesDataset):
+class ContextWindowTextDataset(TextDataset):
     def __init__(self, root, context_size: int, split="train", transform=None):
         self.context_size = context_size
         super().__init__(root, split, transform)
@@ -64,7 +64,7 @@ class ContextWindowNamesDataset(NamesDataset):
         self.size = len(self.X)
 
 
-class RNNNamesDataset(NamesDataset):
+class RNNTextDataset(TextDataset):
     def __init__(self, root, split="train", transform=None):
         super().__init__(root, split, transform)
 

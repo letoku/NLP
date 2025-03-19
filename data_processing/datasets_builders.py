@@ -135,7 +135,7 @@ class SentencesDatasetBuilder(DatasetBuilder):
         self.alphabet = [self.separation_token] + sorted(set(self.raw_text))
 
     def _build_datasets(self) -> None:
-        fragments = self.raw_text.split(self.raw_text)
+        fragments = self.parse_text_into_fragments(self.raw_text)
         train_data, val_data, test_data = _split_dataset(fragments, self.train_frac, self.val_frac)
         self.train = self._build_single_dataset(train_data)
         self.val = self._build_single_dataset(val_data)
