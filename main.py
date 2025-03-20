@@ -41,7 +41,7 @@ def build_books_dataset(books: List[str]) -> None:
         raw_text=text,
         separation_token="<END>",
         tokenizer = 'punkt',
-        sentences_in_fragment = 3,
+        sentences_in_fragment = 1,
         train_frac = 0.8,
         val_frac = 0.1
     )

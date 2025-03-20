@@ -117,12 +117,14 @@ class SentencesDatasetBuilder(DatasetBuilder):
                  raw_text: str,
                  separation_token: str,
                  tokenizer: str = 'punkt',
-                 sentences_in_fragment: int = 3,
+                 sentences_in_fragment: int = 1,
+                 max_number_of_tokens_in_fragment: int = 150,
                  train_frac: float = 0.8,
                  val_frac: float = 0.1):
         self.raw_text = raw_text
         self.tokenizer = tokenizer
         self.sentences_in_fragment = sentences_in_fragment
+        self.max_number_of_tokens_in_fragment = max_number_of_tokens_in_fragment
         super().__init__(
             dataset_name=dataset_name,
             data_path=data_path,
@@ -149,7 +151,8 @@ class SentencesDatasetBuilder(DatasetBuilder):
 
         while i < len(sentences):
             fragment = "".join(sentences[i: min(i + self.sentences_in_fragment, len(sentences))])
-            fragments.append(fragment)
+            if len(fragment) <= self.max_number_of_tokens_in_fragment:
+                fragments.append(fragment)
             i += self.sentences_in_fragment
 
         return fragments
