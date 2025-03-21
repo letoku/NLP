@@ -37,7 +37,7 @@ class ForwardLayer(Layer, ABC):
 
 class StateDependentLayer(Layer, ABC):
     @abstractmethod
-    def __call__(self, x: torch.Tensor, hidden_state: torch) -> torch.Tensor:
+    def __call__(self, x: torch.Tensor, hidden_state: torch) -> Tuple[torch.Tensor, torch.Tensor]:
         pass
 
 

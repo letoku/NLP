@@ -1,9 +1,14 @@
+from typing import Tuple, Dict
 import os
 import json
 import pickle
 import torch
 from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pad_sequence
 from abc import ABC, abstractmethod
+
+
+TARGET_PADDING_VALUE = -100  # By default, in torch this value is ignored for loss calculations.
 
 
 class TextDataset(Dataset, ABC):
@@ -12,11 +17,15 @@ class TextDataset(Dataset, ABC):
         self.root = root
         self.data_path = os.path.join(root, split)
         self.transform = transform
+        self.itos: Dict[int, str] = {}
+        self.stoi: Dict[str, int] = {}
+        self.size = 0
+
         with open(os.path.join(self.data_path, "data.pkl"), "rb") as f:
             self.data = pickle.load(f)
         self._load_stoi_itos()
-        self.size = 0
         self._preprocess_data()
+
 
     def __len__(self):
         return self.size
@@ -24,6 +33,10 @@ class TextDataset(Dataset, ABC):
     @abstractmethod
     def __getitem__(self, idx):
         pass
+
+    @property
+    def vocab_size(self) -> int:
+        return len(self.stoi)
 
     @staticmethod
     def _convert_keys_to_int(d):
@@ -104,3 +117,50 @@ class RNNTextDataset(TextDataset):
 
     def number_of_tokens_in_set(self) -> int:
         return self.tokens_in_set
+
+
+class TorchRNNTextDataset(TextDataset):
+    def __init__(self, root, split="train", transform=None):
+        super().__init__(root, split, transform)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx]
+
+    def _preprocess_data(self):
+        self.X = []
+        self.y = []
+        self.tokens_in_set = 0
+
+        for i in range(len(self.data)):
+            input_seq = [0]
+            output_seq = []
+            for j in range(len(self.data[i])):
+                output_seq.append(self.data[i][j])
+                input_seq.append(self.data[i][j])
+            input_seq = input_seq[:-1]
+            self.X.append(torch.tensor(input_seq))
+            self.y.append(torch.tensor(output_seq))
+            self.tokens_in_set += len(self.data[i])
+
+        self.size = len(self.X)
+
+    def number_of_tokens_in_set(self) -> int:
+        return self.tokens_in_set
+
+    @staticmethod
+    def collate_fn(batch) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        inputs, targets = zip(*batch)
+
+        # Sort by descending length for pack_padded_sequence
+        input_lengths = torch.tensor([len(seq) for seq in inputs])
+        sorted_indices = torch.argsort(input_lengths, descending=True)
+
+        sorted_inputs = [inputs[i] for i in sorted_indices]
+        sorted_targets = [targets[i] for i in sorted_indices]
+        sorted_lengths = input_lengths[sorted_indices]
+
+        inputs_padded = pad_sequence(sorted_inputs, batch_first=True, padding_value=0)
+        targets_padded = pad_sequence(sorted_targets, batch_first=True, padding_value=TARGET_PADDING_VALUE)
+
+        return inputs_padded, targets_padded, sorted_lengths
+
