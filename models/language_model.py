@@ -38,12 +38,14 @@ class StateDependentLanguageModel(StateDependentModule, LanguageModel):
         super().__init__(specs, hidden_units, g)
         self.itos = itos
 
-    def sample(self) -> str:
+    def sample(self, device: torch.device=None) -> str:
+        if device is None:
+            device = torch.device('cpu')
         self.set_eval_mode()
-        context = torch.tensor([0])
+        context = torch.tensor([0]).to(device)
         outputs = []
         hidden_units, number_of_hidden_layers = self.get_hidden_states_dims()
-        hidden_states = torch.zeros(1, hidden_units, number_of_hidden_layers)
+        hidden_states = torch.zeros(1, hidden_units, number_of_hidden_layers).to(device)
         while True:
             probs, hidden_states = self.predict_proba(torch.unsqueeze(context, dim=0), hidden_states)
             out = torch.multinomial(probs, num_samples=1, replacement=True)[0]
@@ -61,13 +63,15 @@ class ContextAndStateDependentLanguageModel(ContextAndStateDependentModule, Lang
         super().__init__(specs, hidden_units, g)
         self.itos = itos
 
-    def sample(self) -> str:
+    def sample(self, device: torch.device=None) -> str:
+        if device is None:
+            device = torch.device('cpu')
         self.set_eval_mode()
-        inp = torch.tensor([0])
+        inp = torch.tensor([0]).to(device)
         outputs = []
         hidden_units, number_of_hidden_layers = self.get_hidden_states_dims()
-        hidden_states = torch.zeros(1, hidden_units, number_of_hidden_layers)
-        context = torch.zeros(1, hidden_units, number_of_hidden_layers)
+        hidden_states = torch.zeros(1, hidden_units, number_of_hidden_layers).to(device)
+        context = torch.zeros(1, hidden_units, number_of_hidden_layers).to(device)
         while True:
             probs, hidden_states, context = self.predict_proba(torch.unsqueeze(inp, dim=0), hidden_states, context)
             out = torch.multinomial(probs, num_samples=1, replacement=True)[0]

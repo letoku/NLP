@@ -25,6 +25,21 @@ class Layer(ABC):
             n_params += param.numel()
         return n_params
 
+    def to(self, device: torch.device) -> None:
+        for attr_name, attr_value in self.__dict__.items():
+            if isinstance(attr_value, torch.Tensor):
+                setattr(self, attr_name, attr_value.to(device))
+
+    def set_train_mode(self) -> None:
+        for attr_name, attr_value in self.__dict__.items():
+            if isinstance(attr_value, torch.Tensor):
+                attr_value.requires_grad = True
+
+    def set_eval_mode(self) -> None:
+        for attr_name, attr_value in self.__dict__.items():
+            if isinstance(attr_value, torch.Tensor):
+                attr_value.requires_grad = False
+
     @abstractmethod
     def __call__(self, *args) -> Tuple[Any, ...]:
         pass

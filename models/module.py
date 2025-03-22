@@ -1,3 +1,4 @@
+from typing import Self
 import torch.nn.functional as F
 from .layers import *
 
@@ -13,8 +14,7 @@ ALLOWED_LAYERS = {
 
 
 class Module(ABC):
-    def __init__(self, specs: list[tuple[str, dict]], g: torch.Generator=None, last_layer_scaling: float = 0.01):
-        self.parameters: list[torch.Tensor] = []
+    def __init__(self, specs: list[tuple[str, dict]], g: torch.Generator=None, last_layer_scaling: float=0.01):
         self.layers: list[Layer] = []
         self.g = g
 
@@ -27,8 +27,6 @@ class Module(ABC):
             self.layers.append(added_layer(**kwargs))
 
         self._scale_layer(-1, last_layer_scaling)
-        for layer in self.layers:
-            self.parameters += layer.parameters()
 
     @abstractmethod
     def __call__(self, *args) -> Tuple[Any, ...]:
@@ -38,23 +36,35 @@ class Module(ABC):
     def predict_proba(self, *args) -> Tuple[Any, ...]:
         pass
 
+    @property
+    def parameters(self):
+        params = []
+        for layer in self.layers:
+            params += layer.parameters()
+        return params
+
     def n_parameters(self) -> int:
         n_params = 0
         for layer in self.layers:
             n_params += layer.n_parameters()
         return n_params
 
+    def to(self, device: torch.device) -> Self:
+        for layer in self.layers:
+            layer.to(device)
+        return self
+
     def _scale_layer(self, layer_index: int, scaling_factor: float):
         for param in self.layers[layer_index].parameters():
             param *= scaling_factor
 
     def set_train_mode(self) -> None:
-        for param in self.parameters:
-            param.requires_grad = True
+        for layer in self.layers:
+            layer.set_train_mode()
 
     def set_eval_mode(self) -> None:
-        for param in self.parameters:
-            param.requires_grad = False
+        for layer in self.layers:
+            layer.set_eval_mode()
 
 
 class ForwardModule(Module):

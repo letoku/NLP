@@ -78,7 +78,11 @@ class ContextWindowTextDataset(TextDataset):
 
 
 class RNNTextDataset(TextDataset):
-    def __init__(self, root, split="train", transform=None):
+    def __init__(self, root, split="train", device: torch.device=None, transform=None):
+        if device is None:
+            self.device = torch.device('cpu')
+        else:
+            self.device = device
         super().__init__(root, split, transform)
 
     def __getitem__(self, idx):
@@ -110,9 +114,9 @@ class RNNTextDataset(TextDataset):
             self.error_weights.append(error_weights)
             self.tokens_in_set += len(self.data[i])
 
-        self.X = torch.tensor(self.X)
-        self.y = torch.tensor(self.y)
-        self.error_weights = torch.tensor(self.error_weights)
+        self.X = torch.tensor(self.X).to(self.device)
+        self.y = torch.tensor(self.y).to(self.device)
+        self.error_weights = torch.tensor(self.error_weights).to(self.device)
         self.size = len(self.X)
 
     def number_of_tokens_in_set(self) -> int:

@@ -28,8 +28,9 @@ def custom_update_step(model, losses, tokens_n, lr):
 
 
 def train_loop(model: StateDependentModule | ContextAndStateDependentModule, train_loader: DataLoader,
-               train_losses: List[float], lr=1e-3, optimizer=None, device: str="cpu") -> None:
-
+               train_losses: List[float], lr=1e-3, optimizer=None, device: torch.device=None) -> None:
+    if device is None:
+        device = torch.device('cpu')
     context_and_state_mode = True if isinstance(model, ContextAndStateDependentModule) else False
 
     hidden_units, number_of_hidden_layers = model.get_hidden_states_dims()
@@ -46,11 +47,12 @@ def train_loop(model: StateDependentModule | ContextAndStateDependentModule, tra
             context = torch.zeros(len(x_seq), hidden_units, number_of_hidden_layers).to(device)
 
         for i in range(x_seq.shape[1]):
+            i_device = torch.tensor(i).to(device)
             if context_and_state_mode:
-                preds, hidden_states, context = model(x_seq[:, i], hidden_states, context)
+                preds, hidden_states, context = model(x_seq[:, i_device], hidden_states, context)
             else:
-                preds, hidden_states = model(x_seq[:, i], hidden_states)
-            losses.append(F.cross_entropy(preds, y_seq[:, i], reduction='none') * w_seq[:, i])
+                preds, hidden_states = model(x_seq[:, i_device], hidden_states)
+            losses.append(F.cross_entropy(preds, y_seq[:, i_device], reduction='none') * w_seq[:, i_device])
             running_train_loss += losses[-1].sum().item()
 
         if optimizer is None:
@@ -62,7 +64,9 @@ def train_loop(model: StateDependentModule | ContextAndStateDependentModule, tra
 
 
 def val_loop(model: StateDependentModule | ContextAndStateDependentModule,
-             val_loader: DataLoader, val_losses: List[float], device: str="cpu") -> None:
+             val_loader: DataLoader, val_losses: List[float], device: torch.device=None) -> None:
+    if device is None:
+        device = torch.device('cpu')
     context_and_state_mode = True if isinstance(model, ContextAndStateDependentModule) else False
     running_val_loss = 0.0
     hidden_units, number_of_hidden_layers = model.get_hidden_states_dims()
@@ -86,10 +90,10 @@ def val_loop(model: StateDependentModule | ContextAndStateDependentModule,
     val_losses.append(running_val_loss / all_tokens)
 
 
-def train_model(model: StateDependentModule,
+def train_model(model: StateDependentModule | ContextAndStateDependentModule,
                 train_loader: DataLoader,
                 val_loader: DataLoader,
-                num_epochs: int, optimizer=None, lr=1e-3, device: str="cpu") -> Dict[str, List[float]]:
+                num_epochs: int, optimizer=None, lr=1e-3, device: torch.device=None) -> Dict[str, List[float]]:
     """
     Returns:
         A dictionary containing training statistics:
@@ -99,11 +103,13 @@ def train_model(model: StateDependentModule,
     val_losses = []
 
     for epoch in range(num_epochs):
+        model.set_train_mode()
         if optimizer is not None:
             train_loop(model, train_loader, train_losses, optimizer=optimizer, device=device)
         else:
             train_loop(model, train_loader, train_losses, lr=lr, device=device)
 
+        model.set_eval_mode()
         val_loop(model, val_loader, val_losses, device=device)
         print_stats(epoch, num_epochs, train_losses, val_losses)
 
