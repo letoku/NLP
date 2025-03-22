@@ -207,9 +207,10 @@ class LSTMLayer(ContextAndStateDependentLayer):
         self.w_xo = torch.empty(in_features, hidden_state_features)
         self.b_ho = torch.zeros(hidden_state_features)
         self.b_xo = torch.zeros(hidden_state_features)
+        self._init_parameters()
 
     def __call__(self, x: torch.Tensor, hidden_state: torch.Tensor, context: torch.Tensor) -> \
-            Tuple[torch.Tensor, torch.Tensor]:
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
         # forget gate
         f = torch.sigmoid(self.b_hf + self.b_xf + torch.matmul(x, self.w_xf) + torch.matmul(hidden_state, self.w_hf))
@@ -228,7 +229,7 @@ class LSTMLayer(ContextAndStateDependentLayer):
         o = torch.sigmoid(self.b_ho + self.b_xo + torch.matmul(x, self.w_xo) + torch.matmul(hidden_state, self.w_ho))
         new_hidden_state = o * torch.tanh(new_context)
 
-        return new_hidden_state, new_context
+        return new_hidden_state, new_hidden_state, new_context
 
 
     def parameters(self) -> List[torch.Tensor]:

@@ -1,5 +1,3 @@
-from abc import ABC, abstractmethod
-from typing import Tuple
 import torch.nn.functional as F
 from .layers import *
 
@@ -9,7 +7,8 @@ ALLOWED_LAYERS = {
     "ReLU": ReLU,
     "Tanh": Tanh,
     "Embedding": Embedding,
-    "Recurrent": RecurrentLayer
+    "Recurrent": RecurrentLayer,
+    "LSTM": LSTMLayer
 }
 
 
@@ -99,6 +98,43 @@ class StateDependentModule(Module):
         hidden_layers = 0
         for layer in self.layers:
             if issubclass(layer.__class__, StateDependentLayer):
+                hidden_layers += 1
+
+        self.hidden_dims = (self.hidden_dims[0], hidden_layers)
+
+    def get_hidden_states_dims(self) -> Tuple[int, int]:
+        return self.hidden_dims
+
+
+class ContextAndStateDependentModule(Module):
+    def __init__(self, specs: list[tuple[str, dict]], hidden_dim: int, g: torch.Generator=None):
+        super().__init__(specs, g)
+        self.hidden_dims = (hidden_dim, -1)
+        self._set_hidden_dims()
+
+    def __call__(self, inputs: torch.Tensor, hidden_states: torch.Tensor, context: torch.Tensor) ->\
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        x = inputs
+        hidden_layer_counter = 0
+        for i, layer in enumerate(self.layers):
+            if issubclass(layer.__class__, ContextAndStateDependentLayer):
+                h_t = hidden_states[:, :, hidden_layer_counter].clone()  # Prevent in-place modification.
+                c_t = context[:, :, hidden_layer_counter].clone()
+                x, hidden_states[:, :, hidden_layer_counter], context[:, :, hidden_layer_counter] = layer(x, h_t, c_t)
+                hidden_layer_counter += 1
+            else:
+                x = layer(x)
+        return x, hidden_states, context
+
+    def predict_proba(self, inputs: torch.Tensor, hidden_states: torch.Tensor, context: torch.Tensor) ->\
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        out, hidden_states, context = self(inputs, hidden_states, context)
+        return F.softmax(out, dim=-1), hidden_states, context
+
+    def _set_hidden_dims(self) -> None:
+        hidden_layers = 0
+        for layer in self.layers:
+            if issubclass(layer.__class__, ContextAndStateDependentLayer):
                 hidden_layers += 1
 
         self.hidden_dims = (self.hidden_dims[0], hidden_layers)

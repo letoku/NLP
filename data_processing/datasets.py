@@ -148,7 +148,7 @@ class TorchRNNTextDataset(TextDataset):
         return self.tokens_in_set
 
     @staticmethod
-    def collate_fn(batch) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def collate_fn(batch, device: str='cpu') -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         inputs, targets = zip(*batch)
 
         # Sort by descending length for pack_padded_sequence
@@ -162,5 +162,5 @@ class TorchRNNTextDataset(TextDataset):
         inputs_padded = pad_sequence(sorted_inputs, batch_first=True, padding_value=0)
         targets_padded = pad_sequence(sorted_targets, batch_first=True, padding_value=TARGET_PADDING_VALUE)
 
-        return inputs_padded, targets_padded, sorted_lengths
+        return inputs_padded.to(device), targets_padded.to(device), sorted_lengths
 

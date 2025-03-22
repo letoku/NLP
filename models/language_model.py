@@ -2,7 +2,8 @@ from typing import List, Tuple, Dict
 import torch
 from abc import ABC, abstractmethod
 
-from .module import ForwardModule, StateDependentModule
+from .module import ForwardModule, StateDependentModule, ContextAndStateDependentModule
+
 
 class LanguageModel(ABC):
     @abstractmethod
@@ -51,5 +52,29 @@ class StateDependentLanguageModel(StateDependentModule, LanguageModel):
                 break
             else:
                 context = out
+
+        return ''.join(self.itos[o] for o in outputs)
+
+
+class ContextAndStateDependentLanguageModel(ContextAndStateDependentModule, LanguageModel):
+    def __init__(self, specs: List[Tuple[str, Dict]], hidden_units: int, itos: Dict[int, str], g: torch.Generator=None):
+        super().__init__(specs, hidden_units, g)
+        self.itos = itos
+
+    def sample(self) -> str:
+        self.set_eval_mode()
+        inp = torch.tensor([0])
+        outputs = []
+        hidden_units, number_of_hidden_layers = self.get_hidden_states_dims()
+        hidden_states = torch.zeros(1, hidden_units, number_of_hidden_layers)
+        context = torch.zeros(1, hidden_units, number_of_hidden_layers)
+        while True:
+            probs, hidden_states, context = self.predict_proba(torch.unsqueeze(inp, dim=0), hidden_states, context)
+            out = torch.multinomial(probs, num_samples=1, replacement=True)[0]
+            outputs.append(out.item())
+            if out.item() == 0:
+                break
+            else:
+                inp = out
 
         return ''.join(self.itos[o] for o in outputs)
