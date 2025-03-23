@@ -1,8 +1,10 @@
 from typing import List
 from matplotlib import pyplot as plt
+import mlflow.pyfunc
+import mlflow
 
 
-def plot_losses(training_stats):
+def plot_losses(training_stats, save_path: str = None):
     """
     Plots the training and validation losses over epochs.
 
@@ -20,7 +22,8 @@ def plot_losses(training_stats):
     plt.title('Training and Validation Loss over Epochs')
     plt.legend()
     plt.grid(True)
-
+    if save_path is not None:
+        plt.savefig(save_path)
     plt.show()
 
 def print_stats(epoch: int, num_epochs: int, train_losses: List[float], val_losses: List[float]) -> None:
@@ -29,3 +32,24 @@ def print_stats(epoch: int, num_epochs: int, train_losses: List[float], val_loss
         f"Train Loss: {train_losses[-1]:.4f}, "
         f"Val Loss: {val_losses[-1]:.4f}"
     )
+
+def mlflow_save_run(experiment: str, model, train_loss: float, val_loss: float,
+                    params: dict, server_uri: str, plot_path: str=None) -> None:
+    wrapped_model =  _MlflowModelWrapper(model)
+    mlflow.set_tracking_uri(uri=server_uri)
+    mlflow.set_experiment(experiment)
+    with mlflow.start_run():
+        mlflow.log_metric("train_loss", train_loss)
+        mlflow.log_metric("val_loss", val_loss)
+        mlflow.log_params(params)
+        mlflow.pyfunc.log_model(artifact_path="model", python_model=wrapped_model)
+        if plot_path is not None:
+            mlflow.log_artifact(plot_path)
+
+
+class _MlflowModelWrapper(mlflow.pyfunc.PythonModel):
+  def __init__(self, model):
+      self.model = model
+
+  def predict(self, context, model_input, params=None):
+      return 0
