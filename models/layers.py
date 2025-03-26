@@ -265,56 +265,52 @@ class LSTMLayer(ContextAndStateDependentLayer):
         # forget gate
         self.w_hf = torch.empty(hidden_state_features, hidden_state_features)
         self.w_xf = torch.empty(in_features, hidden_state_features)
-        self.b_hf = torch.zeros(hidden_state_features)
-        self.b_xf = torch.zeros(hidden_state_features)
+        self.b_f = torch.zeros(hidden_state_features)
 
         # add context gate
         self.w_hg = torch.empty(hidden_state_features, hidden_state_features)
         self.w_xg = torch.empty(in_features, hidden_state_features)
-        self.b_hg = torch.zeros(hidden_state_features)
-        self.b_xg = torch.zeros(hidden_state_features)
+        self.b_g = torch.zeros(hidden_state_features)
 
         # add context mask
         self.w_hi = torch.empty(hidden_state_features, hidden_state_features)
         self.w_xi = torch.empty(in_features, hidden_state_features)
-        self.b_hi = torch.zeros(hidden_state_features)
-        self.b_xi = torch.zeros(hidden_state_features)
+        self.b_i = torch.zeros(hidden_state_features)
 
         # output
         self.w_ho = torch.empty(hidden_state_features, hidden_state_features)
         self.w_xo = torch.empty(in_features, hidden_state_features)
-        self.b_ho = torch.zeros(hidden_state_features)
-        self.b_xo = torch.zeros(hidden_state_features)
+        self.b_o = torch.zeros(hidden_state_features)
         self._init_parameters()
 
     def __call__(self, x: torch.Tensor, hidden_state: torch.Tensor, context: torch.Tensor) -> \
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
         # forget gate
-        f = torch.sigmoid(self.b_hf + self.b_xf + torch.matmul(x, self.w_xf) + torch.matmul(hidden_state, self.w_hf))
+        f = torch.sigmoid(self.b_f + torch.matmul(x, self.w_xf) + torch.matmul(hidden_state, self.w_hf))
         # Hadamard product
         c_f = f * context
 
         # context gate
-        g = torch.tanh(self.b_hg + self.b_xg + torch.matmul(x, self.w_xg) + torch.matmul(hidden_state, self.w_hg))
+        g = torch.tanh(self.b_g + torch.matmul(x, self.w_xg) + torch.matmul(hidden_state, self.w_hg))
         # context mask
-        i = torch.sigmoid(self.b_hi + self.b_xi + torch.matmul(x, self.w_xi) + torch.matmul(hidden_state, self.w_hi))
+        i = torch.sigmoid(self.b_i + torch.matmul(x, self.w_xi) + torch.matmul(hidden_state, self.w_hi))
         addition_to_context = g * i
 
         new_context = c_f + addition_to_context
 
         # output
-        o = torch.sigmoid(self.b_ho + self.b_xo + torch.matmul(x, self.w_xo) + torch.matmul(hidden_state, self.w_ho))
+        o = torch.sigmoid(self.b_o + torch.matmul(x, self.w_xo) + torch.matmul(hidden_state, self.w_ho))
         new_hidden_state = o * torch.tanh(new_context)
 
         return new_hidden_state, new_hidden_state, new_context
 
 
     def parameters(self) -> List[torch.Tensor]:
-        return [self.w_hf, self.w_xf, self.b_hf, self.b_xf,
-                self.w_hg, self.w_xg, self.b_hg, self.b_xg,
-                self.w_hi, self.w_xi, self.b_hi, self.b_xi,
-                self.w_ho, self.w_xo, self.b_ho, self.b_xo]
+        return [self.w_hf, self.w_xf, self.b_f,
+                self.w_hg, self.w_xg, self.b_g,
+                self.w_hi, self.w_xi, self.b_i,
+                self.w_ho, self.w_xo, self.b_o]
 
 
     def _init_parameters(self) -> None:
