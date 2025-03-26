@@ -9,5 +9,5 @@ It consists of:
   - GRU
 - tracking training runs in mlflow\
 ***
-Example screen from mlflow:\
+Example screen from mlflow:
 ![](repository/mlflow.png)
