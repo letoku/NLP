@@ -4,4 +4,6 @@ data
 raw_data/*
 notebooks/*
 artifacts/*
-
+__pycache__/
+*.pyc
+*.pyo
