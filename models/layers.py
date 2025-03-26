@@ -50,10 +50,6 @@ class ForwardLayer(Layer, ABC):
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         pass
 
-class StateDependentLayer(Layer, ABC):
-    @abstractmethod
-    def __call__(self, x: torch.Tensor, hidden_state: torch) -> Tuple[torch.Tensor, torch.Tensor]:
-        pass
 
 class ContextAndStateDependentLayer(Layer, ABC):
     @abstractmethod
@@ -76,6 +72,26 @@ class Tanh(ForwardLayer):
 
     def parameters(self) -> List[torch.Tensor]:
         return []
+
+
+class StateDependentLayer(Layer, ABC):
+    ALLOWED_NON_LINEARITIES = {
+        "ReLU": ReLU,
+        "Tanh": Tanh,
+    }
+
+    @abstractmethod
+    def __call__(self, x: torch.Tensor, hidden_state: torch) -> Tuple[torch.Tensor, torch.Tensor]:
+        pass
+
+    def _set_non_linearity(self, non_linearity_type: str):
+        if non_linearity_type not in StateDependentLayer.ALLOWED_NON_LINEARITIES:
+            raise KeyError(
+                f"Nonlinearity type '{non_linearity_type}' is not in ALLOWED_NON_LINEARITIES. Available nonlinearities:"
+                f" {list(StateDependentLayer.ALLOWED_NON_LINEARITIES.keys())}")
+
+        self.non_linearity = StateDependentLayer.ALLOWED_NON_LINEARITIES[non_linearity_type]()
+
 
 
 class Linear(ForwardLayer):
@@ -120,11 +136,6 @@ class Embedding(ForwardLayer):
 
 
 class RecurrentLayer(StateDependentLayer):
-    ALLOWED_NON_LINEARITIES = {
-        "ReLU": ReLU,
-        "Tanh": Tanh,
-    }
-
     def __init__(self, in_features: int, hidden_state_features: int, out_features: int,
                  different_weights_for_hidden_output: bool = False,
                  non_linearity_type: str = "ReLU",
@@ -185,12 +196,64 @@ class RecurrentLayer(StateDependentLayer):
         if self.bias:
             self.b = torch.zeros(self.out_features)
 
-    def _set_non_linearity(self, non_linearity_type: str):
-        if non_linearity_type not in RecurrentLayer.ALLOWED_NON_LINEARITIES:
-            raise KeyError(
-                f"Nonlinearity type '{non_linearity_type}' is not in ALLOWED_NON_LINEARITIES. Available nonlinearities: {list(RecurrentLayer.ALLOWED_NON_LINEARITIES.keys())}")
 
-        self.non_linearity = RecurrentLayer.ALLOWED_NON_LINEARITIES[non_linearity_type]()
+class GRULayer(StateDependentLayer):
+    def __init__(self, in_features: int, hidden_state_features: int,
+                 non_linearity_type: str = "ReLU",
+                 g: torch.Generator=None):
+        self.in_features = in_features
+        self.hidden_state_features = hidden_state_features
+
+        # reset gate
+        self.w_xr = torch.empty(in_features, hidden_state_features)
+        self.w_hr = torch.empty(hidden_state_features, hidden_state_features)
+        self.b_r = torch.zeros(hidden_state_features)
+
+        # add gate
+        self.w_xz = torch.empty(in_features, hidden_state_features)
+        self.w_hz = torch.empty(hidden_state_features, hidden_state_features)
+        self.b_z = torch.zeros(hidden_state_features)
+
+        # updated hidden
+        self.w_x_uh = torch.empty(in_features, hidden_state_features)
+        self.w_rh_uh = torch.empty(hidden_state_features, hidden_state_features)
+        self.b_uh = torch.zeros(hidden_state_features)
+
+        self.g = g
+        self._init_parameters()
+        self._set_non_linearity(non_linearity_type)
+
+    def __call__(self, x: torch.Tensor, hidden_state: torch) -> Tuple[torch.Tensor, torch.Tensor]:
+        # reset gate
+        r = torch.sigmoid(torch.matmul(x, self.w_xr) + torch.matmul(hidden_state, self.w_hr) + self.b_r)
+
+        # h after gating with r
+        rh = r * hidden_state
+
+        # updated h
+        uh = self.non_linearity(torch.matmul(rh, self.w_rh_uh) + torch.matmul(x, self.w_x_uh) + self.b_uh)
+
+        # add gate
+        z = torch.sigmoid(torch.matmul(x, self.w_xz) + torch.matmul(hidden_state, self.w_hz) + self.b_z)
+
+        out = z * hidden_state + (1 - z) * uh
+
+        return out, out
+
+    def parameters(self) -> List[torch.Tensor]:
+        return [self.w_xr, self.w_hr, self.b_r,
+                self.w_xz, self.w_hz, self.b_z,
+                self.w_x_uh, self.w_rh_uh, self.b_uh]
+
+    def _init_parameters(self):
+        _init_weights(self.w_xr, self.in_features, self.g)
+        _init_weights(self.w_hr, self.hidden_state_features, self.g)
+
+        _init_weights(self.w_xz, self.in_features, self.g)
+        _init_weights(self.w_hz, self.hidden_state_features, self.g)
+
+        _init_weights(self.w_x_uh, self.in_features, self.g)
+        _init_weights(self.w_rh_uh, self.hidden_state_features, self.g)
 
 
 class LSTMLayer(ContextAndStateDependentLayer):

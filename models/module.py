@@ -9,7 +9,8 @@ ALLOWED_LAYERS = {
     "Tanh": Tanh,
     "Embedding": Embedding,
     "Recurrent": RecurrentLayer,
-    "LSTM": LSTMLayer
+    "LSTM": LSTMLayer,
+    "GRU": GRULayer
 }
 
 
