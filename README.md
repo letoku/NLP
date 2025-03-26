@@ -7,7 +7,7 @@ It consists of:
   - vanilla RNN
   - LSTM
   - GRU
-- tracking training runs in mlflow\
+- tracking training runs in mlflow
 ***
 Example screen from mlflow:
 ![](repository/mlflow.png)
